@@ -77,6 +77,10 @@ dependencies = [
     "langchain-litellm>=0.6.4",
 ]
 
+[project.scripts]
+seed-docs = "scripts.seed_surfsense_docs:main"
+seed-db   = "scripts.seed_db:main"
+
 [dependency-groups]
 dev = [
     "ruff>=0.12.5",
