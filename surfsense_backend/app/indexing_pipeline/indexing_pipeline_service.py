@@ -268,22 +268,25 @@ class IndexingPipelineService:
                         ):
                             existing.status = DocumentStatus.pending()
                             existing.updated_at = datetime.now(UTC)
+                            if connector_doc.folder_id is not None:
+                                existing.folder_id = connector_doc.folder_id
                             documents.append(existing)
                             log_document_requeued(ctx)
                         continue
 
                     dup_check = await self.session.execute(
-                        select(Document.id).filter(
+                        select(Document.id, Document.title).filter(
                             Document.content_hash == content_hash,
                             Document.id != existing.id,
                         )
                     )
-                    if dup_check.scalars().first() is not None:
+                    dup_row = dup_check.first()
+                    if dup_row is not None:
                         if not DocumentStatus.is_state(
                             existing.status, DocumentStatus.READY
                         ):
                             existing.status = DocumentStatus.failed(
-                                "Duplicate content — already indexed by another document"
+                                f"Duplicate content: matches '{dup_row.title}'"
                             )
                         continue
 
@@ -293,6 +296,8 @@ class IndexingPipelineService:
                     existing.document_metadata = connector_doc.metadata
                     existing.updated_at = datetime.now(UTC)
                     existing.status = DocumentStatus.pending()
+                    if connector_doc.folder_id is not None:
+                        existing.folder_id = connector_doc.folder_id
                     documents.append(existing)
                     log_document_updated(ctx)
                     continue
@@ -316,6 +321,7 @@ class IndexingPipelineService:
                     created_by_id=connector_doc.created_by_id,
                     updated_at=datetime.now(UTC),
                     status=DocumentStatus.pending(),
+                    folder_id=connector_doc.folder_id,
                 )
                 self.session.add(document)
                 documents.append(document)

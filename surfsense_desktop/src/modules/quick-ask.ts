@@ -5,6 +5,7 @@ import { checkAccessibilityPermission, getFrontmostApp, simulateCopy, simulatePa
 import { getServerPort } from './server';
 import { getShortcuts } from './shortcuts';
 import { getActiveSearchSpaceId } from './active-search-space';
+import { trackEvent } from './analytics';
 
 let currentShortcut = '';
 let quickAskWindow: BrowserWindow | null = null;
@@ -57,7 +58,7 @@ function createQuickAskWindow(x: number, y: number): BrowserWindow {
 
   const spaceId = pendingSearchSpaceId;
   const route = spaceId ? `/dashboard/${spaceId}/new-chat` : '/dashboard';
-  quickAskWindow.loadURL(`http://localhost:${getServerPort()}${route}`);
+  quickAskWindow.loadURL(`http://localhost:${getServerPort()}${route}?quickAssist=true`);
 
   quickAskWindow.once('ready-to-show', () => {
     quickAskWindow?.show();
@@ -84,6 +85,7 @@ function createQuickAskWindow(x: number, y: number): BrowserWindow {
 
 async function openQuickAsk(text: string): Promise<void> {
   pendingText = text;
+  pendingMode = 'quick-assist';
   pendingSearchSpaceId = await getActiveSearchSpaceId();
   const cursor = screen.getCursorScreenPoint();
   const pos = clampToScreen(cursor.x, cursor.y, 450, 750);
@@ -120,6 +122,7 @@ async function quickAskHandler(): Promise<void> {
 
   sourceApp = getFrontmostApp();
   console.log('[quick-ask] Source app:', sourceApp, '| Opening Quick Assist with', text.length, 'chars', selected ? '(selected)' : text ? '(clipboard fallback)' : '(empty)');
+  trackEvent('desktop_quick_ask_opened', { has_selected_text: !!selected });
   openQuickAsk(text);
 }
 
@@ -151,6 +154,7 @@ function registerIpcHandlers(): void {
 
     if (!checkAccessibilityPermission()) return;
 
+    trackEvent('desktop_quick_ask_replaced');
     clipboard.writeText(text);
     destroyQuickAsk();
 
